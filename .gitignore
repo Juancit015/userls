@@ -23,6 +23,7 @@ debian/*.substvars
 debian/*.debhelper
 debian/userls/
 
-# Editors / OS
+# Release artifacts
+dist/
 *~
 .DS_Store

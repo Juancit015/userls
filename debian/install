@@ -1,0 +1,3 @@
+#!/usr/bin/dh-exec
+userls.py => usr/bin/userls
+man/userls.1 => usr/share/man/man1/userls.1

@@ -1,0 +1,229 @@
+.TH USERLS 1 "2026-10-21" "userls 1.0.0" "User Commands"
+.SH NAME
+userls \- read-only view of local accounts, groups and active sessions
+.SH SYNOPSIS
+.B userls
+[\fIOPTIONS\fR]
+.br
+.B userls info
+\fINAME\fR|\fIUID\fR
+.br
+.B userls groups
+[\fINAME\fR|\fIUID\fR]
+.br
+.B userls sessions
+.br
+.B userls export
+\fIFILE\fR [\fB\-\-force\fR]
+.SH DESCRIPTION
+.B userls
+lists the accounts known to the system through NSS
+.RB ( pwd / grp ,
+with a
+.B getent
+fallback), classifies them with a heuristic, and reports groups and active
+sessions. It is strictly read-only: it never creates, modifies or deletes
+accounts, passwords, groups or system files. It does not need root privileges
+and never uses the network.
+.PP
+Without a subcommand,
+.B userls
+lists accounts. UID ranges are read from
+.IR /etc/login.defs ;
+sessions are read from
+.BR who (1).
+.SH OPTIONS
+.TP
+.B \-\-type \fITYPE\fR
+Only list accounts of the given type:
+.BR normal ,
+.BR service ,
+.B system ,
+.B unknown
+or
+.B all
+(the default). Applies to the default listing and to
+.BR export .
+.TP
+.B \-\-search \fITEXT\fR
+Only list accounts whose name contains
+.I TEXT
+(case-insensitive), or whose UID equals
+.I TEXT
+when it is numeric.
+.TP
+.B \-\-json
+Render the current result as JSON on stdout. Diagnostics stay on stderr, so
+stdout parses as JSON.
+.TP
+.B \-\-csv
+Render the current result as CSV on stdout.
+.TP
+.B \-\-no-color
+Disable ANSI color. Color is only used on a terminal and is disabled when
+the
+.B NO_COLOR
+environment variable is set.
+.TP
+.B \-\-version
+Print the upstream version and exit.
+.TP
+.B \-h, \-\-help
+Print usage information and exit.
+.PP
+Shared output flags are accepted both before and after the subcommand, so
+.B "userls \-\-json groups"
+and
+.B "userls groups \-\-json"
+are equivalent.
+.SH COMMANDS
+.TP
+.B info \fINAME\fR|\fIUID\fR
+Show the full record of one account: name, UID, GID, primary group, GECOS,
+home, shell, heuristic type and the configured system UID range. Exits 1 when
+no account matches.
+.TP
+.B groups \fR[\fINAME\fR|\fIUID\fR]
+Without an argument, list every group with its GID and member list (empty
+membership is shown as a dash). With an argument, list the groups of that
+account, including the primary group even when the account is not listed as a
+member, deduplicated and ordered by GID.
+.TP
+.B sessions
+List active login sessions as reported by
+.BR who (1):
+user, terminal, login time and origin. An empty result exits 0.
+.TP
+.B export \fIFILE\fR [\fB\-\-force\fR]
+Write the current account view to
+.I FILE
+as CSV. Refuses to overwrite an existing file unless
+.B \-\-force
+is given.
+.SH ACCOUNT TYPES
+Classification is a heuristic, not an authoritative statement. Rules are
+evaluated in order and the first match wins:
+.IP "1." 4
+UID 0 is
+.BR system .
+.IP "2." 4
+A shell of
+.IR /usr/sbin/nologin ,
+.IR /sbin/nologin ,
+.I /bin/false
+or
+.IR /usr/bin/false ,
+or a home of
+.IR "" ,
+.IR / ,
+.I /nonexistent
+or
+.IR /dev/null ,
+is
+.BR service .
+.IP "3." 4
+.IB UID_MIN " <= UID <= " UID_MAX
+from
+.I /etc/login.defs
+is
+.BR normal .
+.IP "4." 4
+.IB 1 " <= UID < " UID_MIN
+is
+.BR system .
+.IP "5." 4
+Anything else is
+.BR unknown .
+.PP
+Home directories are not inspected with
+.BR stat (2),
+so a deleted home is not detected; this avoids hangs on dead autofs or NFS
+mounts. Session times are printed in the C locale.
+.SH OUTPUT FORMATS
+The default output is an aligned table with a trailing count line. JSON output
+is a single object with
+.BR schema_version ,
+.B count
+and a command key
+.RB ( accounts ,
+.B groups
+or
+.BR sessions ).
+.B schema_version
+is 1 and changes only on breaking output changes.
+.B info \-\-json
+returns the account object plus the configured system UID range. CSV output
+uses RFC 4180 quoting and newline line endings, and is the same writer used by
+.BR export .
+.SH EXIT STATUS
+.TP
+.B 0
+Success, including searches that match nothing.
+.TP
+.B 1
+Runtime failure: unknown account, unwritable export target, a failed
+.B who
+or
+.BR getent ,
+or a malformed source.
+.TP
+.B 2
+Usage error: unknown option or subcommand.
+.SH FILES
+.TP
+.I /etc/login.defs
+Source of the UID ranges. Missing or malformed values fall back to the
+documented defaults (1000/60000/100/999) with a warning on stderr.
+.TP
+.I /etc/passwd ", " /etc/group
+Read only indirectly, through NSS.
+.SH EXAMPLES
+.TP
+.B userls
+List every account.
+.TP
+.B userls \-\-type service
+List service accounts.
+.TP
+.B userls \-\-search juan
+Search by name; a numeric argument matches the UID exactly.
+.TP
+.B userls info 1000
+Show the account with UID 1000.
+.TP
+.B userls groups juan
+List the groups of
+.IR juan .
+.TP
+.B userls sessions
+List active sessions.
+.TP
+.B userls \-\-json
+Machine-readable listing.
+.TP
+.B userls export accounts.csv
+Export the account list, refusing to overwrite an existing file.
+.SH LIMITATIONS
+Enumeration is bound to what NSS exposes: backends that do not enumerate, such
+as SSSD with
+.IR "enumerate = false" ,
+are invisible to both
+.B userls
+and
+.BR getent .
+Account types are heuristic. Sessions come from
+.B who
+and may be empty in containers or SSH setups without utmp records. The raw
+.B who
+line is preserved in the output so no data is invented.
+.SH SEE ALSO
+.BR lslogins (1),
+.BR who (1),
+.BR getent (1),
+.BR login.defs (5),
+.BR passwd (5),
+.BR group (5)
+.SH AUTHOR
+Juan David Rivera Huancas <juandavidriverahuancas0@gmail.com>
+.SH LICENSE
+GPL-3.0-or-later. This program comes with absolutely no warranty.

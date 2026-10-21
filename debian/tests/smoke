@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+userls --version
+userls --json | python3 -c 'import json, sys; data = json.load(sys.stdin); assert data["schema_version"] == 1'
+userls --type normal --json >/dev/null
+userls groups >/dev/null
+userls sessions >/dev/null

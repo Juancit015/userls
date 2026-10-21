@@ -1,0 +1,22 @@
+Source: userls
+Section: admin
+Priority: optional
+Maintainer: Juan David Rivera Huancas <juandavidriverahuancas0@gmail.com>
+Build-Depends: debhelper-compat (= 13), dh-exec, python3
+Standards-Version: 4.7.4
+Rules-Requires-Root: no
+Homepage: https://github.com/Juancit015/userls
+
+Package: userls
+Architecture: all
+Depends: ${misc:Depends}, python3 (>= 3.11)
+Description: read-only CLI to inspect local accounts, groups and sessions
+ userls lists the accounts and groups known to the system through NSS
+ (pwd and grp, with a getent fallback), classifies each account as normal,
+ service, system or unknown using the UID ranges in /etc/login.defs plus
+ shell and home-path indicators, and lists the active sessions reported by
+ who.
+ .
+ It is read-only: it never modifies accounts, passwords, groups or system
+ files. It needs no root privileges and no network access, and it renders
+ aligned tables plus JSON and CSV for scripting.
