@@ -109,7 +109,7 @@
   `Architecture: all`, `Depends: python3 (>= 3.11)`, `Section: admin`,
   `Priority: optional`, `Rules-Requires-Root: no`, `Standards-Version: 4.7.4`.
   Verify `dpkg-checkbuilddeps` passes after installing `debhelper`.
-- [ ] 8.2 Create `debian/rules`, `debian/install` (script installed as
+- [x] 8.2 Create `debian/rules`, `debian/install` (script installed as
   `usr/bin/userls`, man page as `usr/share/man/man1/userls.1`),
   `debian/changelog` (`unstable`, version `1.0.0-1`), `debian/copyright`
   (DEP-5, `GPL-3+`, `Files: debian/*`), and `debian/watch` for GitHub tags.
