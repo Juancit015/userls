@@ -253,9 +253,9 @@ man --local-file man/userls.1
 groff -man -Tascii man/userls.1 >/dev/null
 ```
 
-The OpenSpec change that specifies this tool lives in
-`openspec/changes/add-userls-cli/`; validate it with
-`openspec validate add-userls-cli --strict`.
+The behavioral specs live in `openspec/specs/`; the change that built the
+tool is archived under `openspec/changes/archive/`. Validate the specs with
+`openspec validate --all --strict`.
 
 ## Release process
 
