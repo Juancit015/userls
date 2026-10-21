@@ -6,3 +6,7 @@ userls --json | python3 -c 'import json, sys; data = json.load(sys.stdin); asser
 userls --type normal --json >/dev/null
 userls groups >/dev/null
 userls sessions >/dev/null
+
+test -f /usr/share/fish/vendor_completions.d/userls.fish
+test -f /usr/share/bash-completion/completions/userls
+test -f /usr/share/zsh/vendor-completions/_userls

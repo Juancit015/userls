@@ -11,7 +11,13 @@ is English.
   fallback), `who` sessions, table/JSON/CSV rendering. Installed as
   `/usr/bin/userls`.
 - `tests/` — stdlib `unittest` only; no fixtures, no services, no CI. Run
-  from the repo root: tests `import userls` and spawn `userls.py`.
+  from the repo root: tests `import userls` and spawn `userls.py`. Shell
+  completion behavior is pinned in `tests/test_completions.py` (skipped when
+  a shell is missing).
+- `completions/` — hand-written completions: `userls.fish`, `userls.bash`
+  and `_userls` (zsh). Packaged into the shells' vendor completion
+  directories via `debian/install`; keep candidate sets in sync with the CLI
+  and with `openspec/specs/shell-completions`.
 - `debian/` — debhelper packaging. `debian/changelog` is the package-version
   source of truth. `debian/install` is a dh-exec script (`userls.py =>
   usr/bin/userls`); keep the `#!/usr/bin/dh-exec` shebang.
@@ -22,11 +28,11 @@ is English.
 ## Commands
 
 ```sh
-python3 -m unittest discover -s tests -v     # full suite (62 tests)
+python3 -m unittest discover -s tests -v     # full suite (87 tests)
 python3 -m unittest tests.test_classify -v   # single module
 openspec validate --all --strict             # spec contract check
 dpkg-buildpackage -us -uc -b                 # .deb lands in the PARENT dir
-lintian --fail-on error ../userls_1.0.0-1_all.deb
+lintian --fail-on error ../userls_1.1.0-1_all.deb
 groff -man -Tascii man/userls.1 >/dev/null   # man page renders
 ```
 

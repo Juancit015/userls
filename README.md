@@ -43,13 +43,13 @@ only file it ever writes is the target you name with `userls export`.
 
 ### From the `.deb` (GitHub releases)
 
-Download `userls_1.0.0-1_all.deb` and `SHA256SUMS` from the
+Download `userls_1.1.0-1_all.deb` and `SHA256SUMS` from the
 [Releases page](https://github.com/Juancit015/userls/releases), verify the
 checksum, then install:
 
 ```sh
 sha256sum -c SHA256SUMS
-sudo apt install ./userls_1.0.0-1_all.deb
+sudo apt install ./userls_1.1.0-1_all.deb
 ```
 
 Remove it with `sudo apt remove userls`. The package ships no conffiles, no
@@ -70,12 +70,44 @@ Or install without root, in your user path:
 install -Dm755 userls.py ~/.local/bin/userls
 ```
 
+### Shell completions
+
+The `.deb` installs fish, bash and zsh completions. For a rootless install,
+copy the file for your shell from the clone:
+
+```sh
+# fish
+install -Dm644 completions/userls.fish ~/.config/fish/completions/userls.fish
+# bash
+install -Dm644 completions/userls.bash ~/.local/share/bash-completion/completions/userls
+# zsh
+install -Dm644 completions/_userls ~/.local/share/zsh/site-functions/_userls
+```
+
+zsh only reads `~/.local/share/zsh/site-functions` when it is on `fpath`; add
+`fpath=(~/.local/share/zsh/site-functions $fpath)` to `~/.zshrc` before
+`compinit` runs.
+
+The completions list subcommands, shared options and `--type` values; `info`
+and `groups` also complete real account names, described with UID and type
+where the shell displays descriptions. That listing is skipped silently when
+`userls` is not on `PATH`.
+
+A rootless man page install has no indexed database, so the one-line command
+description that completion menus show (`userls (command)`) stays missing
+until the index is built:
+
+```sh
+install -Dm644 man/userls.1 ~/.local/share/man/man1/userls.1
+mandb --user-db
+```
+
 ### Build the Debian package
 
 ```sh
 sudo apt install debhelper
 dpkg-buildpackage -us -uc -b
-ls ../userls_1.0.0-1_all.deb
+ls ../userls_1.1.0-1_all.deb
 ```
 
 ## Usage

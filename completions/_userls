@@ -1,0 +1,90 @@
+#compdef userls
+#
+# Zsh completion for userls.
+#
+# Installation:
+#   packaged:  /usr/share/zsh/vendor-completions/_userls
+#   rootless:  ~/.local/share/zsh/site-functions/_userls
+
+# Account names for the subcommands that take one, described with UID and
+# type, silent on any failure.
+_userls_accounts() {
+    local line name uid type
+    local -a accounts
+    for line in ${(f)"$(command userls --csv 2>/dev/null)"}; do
+        name=${line%%,*}
+        uid=${${line#*,}%%,*}
+        type=${line##*,}
+        [[ $uid == <-> ]] || continue  # skips the CSV header
+        accounts+=("${name}:uid ${uid} · ${type}")
+    done
+    _describe -t accounts 'account' accounts
+}
+
+_userls_type_values() {
+    local -a values
+    values=(
+        'all:every account'
+        'normal:human account with a login shell and home directory'
+        'service:service account (non-login shell or bogus home)'
+        'system:system account (root or the system UID range)'
+        'unknown:account outside every configured range'
+    )
+    _describe -t types 'account type' values
+}
+
+_userls_options() {
+    local -a specs
+    specs=(
+        '(-h --help)'{-h,--help}'[show the help message and exit]'
+        '--json[render the result as JSON on stdout]'
+        '--csv[render the result as CSV on stdout]'
+        '--no-color[disable ANSI color]'
+        '--version[show the program version and exit]'
+        '--search=[search accounts by name (substring) or by UID (exact)]:search term: '
+        '--type=[filter accounts by type]:account type:_userls_type_values'
+    )
+    [[ $1 == export ]] && specs+=( '--force[overwrite an existing export file]' )
+    _arguments -s -S $specs
+}
+
+_userls() {
+    local cur=${words[CURRENT]} prev=${words[CURRENT-1]} sub="" word
+
+    if [[ $prev == --type ]]; then
+        _userls_type_values
+        return
+    fi
+
+    for word in ${words[2,CURRENT-1]}; do
+        case $word in
+            (info|groups|sessions|export) sub=$word ;;
+        esac
+    done
+
+    if [[ $cur == -* ]]; then
+        _userls_options "$sub"
+        return
+    fi
+
+    case $sub in
+        ("")
+            local -a commands
+            commands=(
+                'info:show one account'
+                'groups:list groups or the groups of one account'
+                'sessions:list active login sessions'
+                'export:export the account list to a CSV file'
+            )
+            _describe -t commands 'command' commands
+            ;;
+        (info|groups)
+            _userls_accounts
+            ;;
+        (export)
+            _files
+            ;;
+    esac
+}
+
+_userls "$@"

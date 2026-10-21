@@ -1,3 +1,6 @@
 #!/usr/bin/dh-exec
 userls.py => usr/bin/userls
 man/userls.1 => usr/share/man/man1/userls.1
+completions/userls.fish => usr/share/fish/vendor_completions.d/userls.fish
+completions/userls.bash => usr/share/bash-completion/completions/userls
+completions/_userls => usr/share/zsh/vendor-completions/_userls

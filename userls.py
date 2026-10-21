@@ -18,7 +18,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Callable, Iterable, Sequence
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __prog__ = "userls"
 
 SCHEMA_VERSION = 1

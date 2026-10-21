@@ -1,3 +1,11 @@
+userls (1.1.0-1) unstable; urgency=medium
+
+  * Add fish, bash and zsh shell completions: subcommands, shared options,
+    --type values and live account names, with descriptions where the shell
+    displays them.
+
+ -- Juan David Rivera Huancas <juandavidriverahuancas0@gmail.com>  Wed, 21 Oct 2026 10:16:21 -0500
+
 userls (1.0.0-1) unstable; urgency=medium
 
   * Initial release.
