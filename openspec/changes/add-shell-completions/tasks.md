@@ -80,7 +80,7 @@
       container and no container or volume is left behind.
 - [x] 6.3 Build the release artifacts: `dist/userls_1.1.0-1_all.deb` and
       `dist/SHA256SUMS`. Verify: `sha256sum -c dist/SHA256SUMS` passes.
-- [ ] 6.4 Publish the GitHub release `v1.1.0` with the `.deb` and
+- [x] 6.4 Publish the GitHub release `v1.1.0` with the `.deb` and
       `SHA256SUMS`, and verify the published asset: download it and confirm
       the checksum matches. Verify: release page lists both assets and the
       downloaded checksum passes.
