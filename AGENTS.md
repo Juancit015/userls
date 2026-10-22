@@ -22,7 +22,7 @@ is English.
   source of truth. `debian/install` is a dh-exec script (`userls.py =>
   usr/bin/userls`); keep the `#!/usr/bin/dh-exec` shebang.
 - `man/userls.1`, `README.md` — user docs; keep them in sync with CLI changes.
-- `openspec/specs/` — the behavioral contract (5 capabilities). Completed
+- `openspec/specs/` — the behavioral contract (6 capabilities). Completed
   changes live under `openspec/changes/archive/`.
 
 ## Commands
