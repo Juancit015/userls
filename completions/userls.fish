@@ -10,6 +10,7 @@ complete -c userls -f
 # Subcommands (only before one has been typed).
 complete -c userls -n '__fish_use_subcommand' -a info -d 'show one account'
 complete -c userls -n '__fish_use_subcommand' -a groups -d 'list groups or the groups of one account'
+complete -c userls -n '__fish_use_subcommand' -a perms -d 'show group-derived privilege levels'
 complete -c userls -n '__fish_use_subcommand' -a sessions -d 'list active login sessions'
 complete -c userls -n '__fish_use_subcommand' -a export -d 'export the account list to a CSV file'
 
@@ -31,7 +32,7 @@ complete -c userls -l type -x -a unknown -d 'account outside every configured ra
 complete -c userls -l type -x -d 'filter accounts by type'
 
 # Live account names for the subcommands that take one.
-complete -c userls -n '__fish_seen_subcommand_from info groups' -f -a '(__userls_accounts)'
+complete -c userls -n '__fish_seen_subcommand_from info groups perms' -f -a '(__userls_accounts)'
 
 # export takes a file and accepts --force.
 complete -c userls -n '__fish_seen_subcommand_from export' -l force -d 'overwrite an existing export file'

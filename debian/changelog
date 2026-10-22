@@ -1,3 +1,12 @@
+userls (1.2.0-1) unstable; urgency=medium
+
+  * Add the `perms` subcommand: group-derived privilege levels (root, sudo,
+    privileged, standard) with the mapped groups that grant them, a
+    single-account detail view, JSON/CSV output and the shared filters.
+  * Complete `perms` in fish, bash and zsh.
+
+ -- Juan David Rivera Huancas <juandavidriverahuancas0@gmail.com>  Wed, 21 Oct 2026 22:31:48 -0500
+
 userls (1.1.0-1) unstable; urgency=medium
 
   * Add fish, bash and zsh shell completions: subcommands, shared options,

@@ -28,11 +28,11 @@ is English.
 ## Commands
 
 ```sh
-python3 -m unittest discover -s tests -v     # full suite (87 tests)
+python3 -m unittest discover -s tests -v     # full suite (119 tests)
 python3 -m unittest tests.test_classify -v   # single module
 openspec validate --all --strict             # spec contract check
 dpkg-buildpackage -us -uc -b                 # .deb lands in the PARENT dir
-lintian --fail-on error ../userls_1.1.0-1_all.deb
+lintian --fail-on error ../userls_1.2.0-1_all.deb
 groff -man -Tascii man/userls.1 >/dev/null   # man page renders
 ```
 

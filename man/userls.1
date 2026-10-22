@@ -1,4 +1,4 @@
-.TH USERLS 1 "2026-10-21" "userls 1.0.0" "User Commands"
+.TH USERLS 1 "2026-10-21" "userls 1.2.0" "User Commands"
 .SH NAME
 userls \- read-only view of local accounts, groups and active sessions
 .SH SYNOPSIS
@@ -9,6 +9,9 @@ userls \- read-only view of local accounts, groups and active sessions
 \fINAME\fR|\fIUID\fR
 .br
 .B userls groups
+[\fINAME\fR|\fIUID\fR]
+.br
+.B userls perms
 [\fINAME\fR|\fIUID\fR]
 .br
 .B userls sessions
@@ -42,7 +45,9 @@ Only list accounts of the given type:
 .B unknown
 or
 .B all
-(the default). Applies to the default listing and to
+(the default). Applies to the default listing,
+.BR perms ,
+and
 .BR export .
 .TP
 .B \-\-search \fITEXT\fR
@@ -88,6 +93,16 @@ Without an argument, list every group with its GID and member list (empty
 membership is shown as a dash). With an argument, list the groups of that
 account, including the primary group even when the account is not listed as a
 member, deduplicated and ordered by GID.
+.TP
+.B perms \fR[\fINAME\fR|\fIUID\fR]
+Without an argument, list every account with its heuristic type, privilege
+level and the mapped groups that granted that level. Rows are ordered by level
+severity and then UID. With an argument, show one account's level and every
+mapped group it holds, and exit 1 when no account matches. The
+.B \-\-type
+and
+.B \-\-search
+filters apply to the listing, not to a single-account report.
 .TP
 .B sessions
 List active login sessions as reported by
@@ -139,6 +154,39 @@ Home directories are not inspected with
 .BR stat (2),
 so a deleted home is not detected; this avoids hangs on dead autofs or NFS
 mounts. Session times are printed in the C locale.
+.SH PRIVILEGE LEVELS
+.B userls perms
+derives a privilege level from group membership. It is a group-based hint, not
+an audit of sudoers, file modes or ACLs. Levels are evaluated in order and the
+first match wins:
+.IP "1." 4
+UID 0 is
+.BR root .
+.IP "2." 4
+Membership in
+.B sudo
+or
+.B wheel
+is
+.BR sudo .
+.IP "3." 4
+Membership in
+.BR adm ,
+.BR disk ,
+.BR docker ,
+.BR lxd ,
+.BR libvirt ,
+.B shadow
+or
+.B systemd-journal
+is
+.BR privileged .
+.IP "4." 4
+Anything else is
+.BR standard .
+.PP
+The primary group counts as a membership. Only mapped groups are reported, so
+the output shows which groups produced the level.
 .SH OUTPUT FORMATS
 The default output is an aligned table with a trailing count line. JSON output
 is a single object with
@@ -146,13 +194,22 @@ is a single object with
 .B count
 and a command key
 .RB ( accounts ,
-.B groups
+.B groups ,
+.B sessions
 or
-.BR sessions ).
+.BR permissions ).
 .B schema_version
 is 1 and changes only on breaking output changes.
 .B info \-\-json
-returns the account object plus the configured system UID range. CSV output
+returns the account object plus the configured system UID range.
+.B perms \fINAME\fR \-\-json
+returns the account object plus a
+.B permission
+object with
+.B level
+and
+.BR groups .
+CSV output
 uses RFC 4180 quoting and newline line endings, and is the same writer used by
 .BR export .
 .SH EXIT STATUS
@@ -185,15 +242,22 @@ List every account.
 .B userls \-\-type service
 List service accounts.
 .TP
-.B userls \-\-search juan
+.B userls \-\-search username
 Search by name; a numeric argument matches the UID exactly.
 .TP
 .B userls info 1000
 Show the account with UID 1000.
 .TP
-.B userls groups juan
+.B userls groups username
 List the groups of
-.IR juan .
+.IR username .
+.TP
+.B userls perms
+List every account with its privilege level.
+.TP
+.B userls perms username
+Show the privilege level and mapped groups of
+.IR username .
 .TP
 .B userls sessions
 List active sessions.
@@ -215,7 +279,9 @@ Account types are heuristic. Sessions come from
 .B who
 and may be empty in containers or SSH setups without utmp records. The raw
 .B who
-line is preserved in the output so no data is invented.
+line is preserved in the output so no data is invented. Privilege levels are
+derived from a closed set of groups and never from sudoers, file modes or
+ACLs, so they cannot see indirect escalation.
 .SH SEE ALSO
 .BR lslogins (1),
 .BR who (1),

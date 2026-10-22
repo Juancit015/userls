@@ -43,13 +43,13 @@ only file it ever writes is the target you name with `userls export`.
 
 ### From the `.deb` (GitHub releases)
 
-Download `userls_1.1.0-1_all.deb` and `SHA256SUMS` from the
+Download `userls_1.2.0-1_all.deb` and `SHA256SUMS` from the
 [Releases page](https://github.com/Juancit015/userls/releases), verify the
 checksum, then install:
 
 ```sh
 sha256sum -c SHA256SUMS
-sudo apt install ./userls_1.1.0-1_all.deb
+sudo apt install ./userls_1.2.0-1_all.deb
 ```
 
 Remove it with `sudo apt remove userls`. The package ships no conffiles, no
@@ -107,7 +107,7 @@ mandb --user-db
 ```sh
 sudo apt install debhelper
 dpkg-buildpackage -us -uc -b
-ls ../userls_1.1.0-1_all.deb
+ls ../userls_1.2.0-1_all.deb
 ```
 
 ## Usage
@@ -116,6 +116,7 @@ ls ../userls_1.1.0-1_all.deb
 userls [--type TYPE] [--search TEXT] [--json|--csv] [--no-color]
 userls info <name|uid>
 userls groups [name|uid]
+userls perms [name|uid]
 userls sessions
 userls export <file> [--force]
 ```
@@ -124,10 +125,10 @@ Listing accounts, the default action:
 
 ```console
 $ userls
-NAME   UID   GID   GROUP  HOME        SHELL          TYPE
-root   0     0     root   /root       /bin/bash      system
+NAME      UID   GID   GROUP     HOME            SHELL          TYPE
+root      0     0     root      /root           /bin/bash      system
 ...
-juan   1000  1000  juan   /home/juan  /usr/bin/fish  normal
+username  1000  1000  username  /home/username  /usr/bin/fish  normal
 
 34 accounts
 ```
@@ -137,14 +138,14 @@ Filter and search:
 ```console
 $ userls --type service
 $ userls --type all
-$ userls --search juan
+$ userls --search username
 $ userls --search 1000
 ```
 
 Inspect one account by name or UID:
 
 ```console
-$ userls info juan
+$ userls info username
 $ userls info 1000
 ```
 
@@ -152,8 +153,16 @@ Groups and sessions:
 
 ```console
 $ userls groups
-$ userls groups juan
+$ userls groups username
 $ userls sessions
+```
+
+Privilege levels:
+
+```console
+$ userls perms
+$ userls perms username
+$ userls perms 1000
 ```
 
 Machine-readable output:
@@ -162,7 +171,7 @@ Machine-readable output:
 $ userls --json
 $ userls --csv
 $ userls --type service --json
-$ userls groups juan --json
+$ userls groups username --json
 ```
 
 Shared flags work before or after the subcommand, so `userls --json groups`
@@ -209,6 +218,36 @@ Consequences worth knowing:
 Home directories are deliberately **not** `stat()`ed: an autofs or NFS home
 can block for seconds, and a listing command must never hang on a dead mount.
 
+## Privilege levels
+
+`userls perms` derives a privilege level from group membership. It is a
+group-based hint, not an audit of sudoers, file modes or ACLs. Levels are
+evaluated in order and the first match wins:
+
+| Order | Condition | Level |
+|-------|-----------|-------|
+| 1 | UID 0 | `root` |
+| 2 | Member of `sudo` or `wheel` | `sudo` |
+| 3 | Member of `adm`, `disk`, `docker`, `lxd`, `libvirt`, `shadow` or `systemd-journal` | `privileged` |
+| 4 | Anything else | `standard` |
+
+The primary group counts as a membership, and only the mapped groups are shown,
+so the output explains why an account received its level:
+
+```console
+$ userls perms
+NAME      UID   TYPE    LEVEL  GROUPS
+root      0     system  root   -
+username  1000  normal  sudo   sudo, docker
+
+34 accounts
+```
+
+Rows are ordered by level severity and then UID. `userls perms username` reports
+one account with its level and every mapped group it holds, and exits 1 for an
+unknown name or UID. `--type` and `--search` filter the listing, while
+`--json`, `--csv` and `--no-color` behave as in the other commands.
+
 ## Output formats
 
 - **Table** (default): aligned columns with a trailing count line, colored by
@@ -222,7 +261,7 @@ can block for seconds, and a listing command must never hang on a dead mount.
 ### JSON schema
 
 `schema_version` is `1`. It only changes on breaking output changes. The
-command key is `accounts`, `groups` or `sessions`:
+command key is `accounts`, `groups`, `sessions` or `permissions`:
 
 ```json
 {
@@ -230,12 +269,12 @@ command key is `accounts`, `groups` or `sessions`:
   "count": 1,
   "accounts": [
     {
-      "name": "juan",
+      "name": "username",
       "uid": 1000,
       "gid": 1000,
-      "primary_group": "juan",
-      "gecos": "Juan David",
-      "home": "/home/juan",
+      "primary_group": "username",
+      "gecos": "User Name",
+      "home": "/home/username",
       "shell": "/usr/bin/fish",
       "type": "normal"
     }
@@ -245,8 +284,11 @@ command key is `accounts`, `groups` or `sessions`:
 
 `groups` entries carry `name`, `gid` and `members` (a list). `sessions`
 entries carry `user`, `tty`, `login_time`, `origin` and the `raw` `who` line.
-`info --json` returns `schema_version`, the `account` object and the
-configured `system_uid_range`.
+`permissions` entries carry `name`, `uid`, `type`, `level` and `groups` (a
+list of the mapped groups held). `info --json` returns `schema_version`, the
+`account` object and the configured `system_uid_range`; `perms NAME --json`
+returns `schema_version`, the `account` object and a `permission` object with
+`level` and `groups`.
 
 ## Exit status
 
@@ -262,6 +304,9 @@ configured `system_uid_range`.
   `getent`; `userls` cannot see what NSS does not expose.
 - **Types are heuristic.** Service infrastructure occasionally uses real
   shells, and humans occasionally have `nologin`.
+- **Privilege levels are group-based.** `userls perms` maps a closed set of
+  groups to levels; it does not read sudoers, ACLs or file modes, and it cannot
+  see indirect escalation paths.
 - **Deleted homes are not detected** on purpose (no `stat()`; see above).
 - **Sessions come from `who`.** Containers and SSH setups without utmp records
   may show nothing. The raw `who` line is preserved in the output.

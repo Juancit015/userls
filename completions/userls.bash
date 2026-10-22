@@ -18,12 +18,12 @@ _userls() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local subcommands="info groups sessions export"
+    local subcommands="info groups perms sessions export"
     local options="--json --csv --no-color --type --search --version --help -h"
 
     for word in "${COMP_WORDS[@]:1:COMP_CWORD-1}"; do
         case "$word" in
-            info|groups|sessions|export) sub="$word" ;;
+            info|groups|perms|sessions|export) sub="$word" ;;
         esac
     done
 
@@ -41,7 +41,7 @@ _userls() {
     fi
 
     case "$sub" in
-        info|groups)
+        info|groups|perms)
             COMPREPLY=($(compgen -W "$(_userls_accounts)" -- "$cur"))
             ;;
         export)

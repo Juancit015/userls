@@ -18,7 +18,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Callable, Iterable, Sequence
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __prog__ = "userls"
 
 SCHEMA_VERSION = 1
@@ -44,6 +44,23 @@ TYPE_COLORS = {
     "unknown": "35",
 }
 
+PRIVILEGE_LEVELS = ("root", "sudo", "privileged", "standard")
+
+PRIVILEGE_GROUPS = {
+    "sudo": ("sudo", "wheel"),
+    "privileged": (
+        "adm",
+        "disk",
+        "docker",
+        "lxd",
+        "libvirt",
+        "shadow",
+        "systemd-journal",
+    ),
+}
+
+PRIVILEGE_RANK = {level: rank for rank, level in enumerate(PRIVILEGE_LEVELS)}
+
 TYPE_COLUMN = 6
 
 WHO_RE = re.compile(
@@ -61,9 +78,11 @@ and it never modifies accounts, passwords or groups.
 Examples:
   userls
   userls --type service
-  userls --search juan
+  userls --search username
   userls info 1000
-  userls groups juan
+  userls groups username
+  userls perms
+  userls perms username
   userls sessions
   userls --json
   userls export accounts.csv
@@ -96,6 +115,15 @@ class Session:
     login_time: str
     origin: str
     raw: str
+
+
+@dataclass(frozen=True)
+class Permission:
+    name: str
+    uid: int
+    account_type: str
+    level: str
+    groups: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -530,6 +558,78 @@ def groups_for_account(source: SystemDataSource, term: str) -> list[Group]:
     return [by_gid[gid] for gid in sorted(by_gid)]
 
 
+def privilege_level(uid: int, groups: Iterable[str]) -> str:
+    """Classify privilege from UID and group names, first match wins."""
+    if uid == 0:
+        return "root"
+    held = set(groups)
+    for level, names in PRIVILEGE_GROUPS.items():
+        if any(name in held for name in names):
+            return level
+    return "standard"
+
+
+def privilege_groups(groups: Iterable[str]) -> tuple[str, ...]:
+    """Mapped groups held, in mapping order."""
+    held = set(groups)
+    return tuple(
+        name
+        for names in PRIVILEGE_GROUPS.values()
+        for name in names
+        if name in held
+    )
+
+
+def membership_index(groups: Iterable[Group]) -> dict[str, set[str]]:
+    index: dict[str, set[str]] = {}
+    for group in groups:
+        for member in group.members:
+            index.setdefault(member, set()).add(group.name)
+    return index
+
+
+def _permission(account: Account, held: Iterable[str]) -> Permission:
+    held_names = set(held)
+    return Permission(
+        name=account.name,
+        uid=account.uid,
+        account_type=account.type,
+        level=privilege_level(account.uid, held_names),
+        groups=privilege_groups(held_names),
+    )
+
+
+def permission_for(account: Account, groups: Iterable[Group]) -> Permission:
+    held = {account.primary_group}
+    held.update(
+        group.name for group in groups if account.name in group.members
+    )
+    return _permission(account, held)
+
+
+def privilege_report(
+    accounts: Iterable[Account],
+    groups: Iterable[Group],
+) -> list[Permission]:
+    group_list = list(groups)
+    index = membership_index(group_list)
+    report = [
+        _permission(
+            account,
+            index.get(account.name, set()) | {account.primary_group},
+        )
+        for account in accounts
+    ]
+    report.sort(
+        key=lambda permission: (
+            PRIVILEGE_RANK[permission.level],
+            permission.uid,
+            permission.name,
+        )
+    )
+    return report
+
+
 def display_width(text: str) -> int:
     """Terminal display width, counting wide glyphs as two cells."""
     width = 0
@@ -819,6 +919,115 @@ def print_info(
         sys.stdout.write(f"{pad(label + ':', width)}{value}\n")
 
 
+def permission_dict(permission: Permission) -> dict[str, object]:
+    return {
+        "name": permission.name,
+        "uid": permission.uid,
+        "type": permission.account_type,
+        "level": permission.level,
+        "groups": list(permission.groups),
+    }
+
+
+def permissions_payload(
+    permissions: Sequence[Permission],
+) -> dict[str, object]:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "count": len(permissions),
+        "permissions": [
+            permission_dict(permission) for permission in permissions
+        ],
+    }
+
+
+def print_permissions(
+    permissions: Sequence[Permission],
+    args: argparse.Namespace,
+) -> None:
+    headers = ["NAME", "UID", "TYPE", "LEVEL", "GROUPS"]
+    rows = [
+        [
+            permission.name,
+            str(permission.uid),
+            permission.account_type,
+            permission.level,
+            ", ".join(permission.groups) or "-",
+        ]
+        for permission in permissions
+    ]
+
+    if getattr(args, "json", False):
+        sys.stdout.write(render_json(permissions_payload(permissions)))
+        return
+    if getattr(args, "csv", False):
+        write_csv(
+            sys.stdout,
+            ["name", "uid", "type", "level", "groups"],
+            [
+                [
+                    permission.name,
+                    permission.uid,
+                    permission.account_type,
+                    permission.level,
+                    ",".join(permission.groups),
+                ]
+                for permission in permissions
+            ],
+        )
+        return
+    sys.stdout.write(
+        render_table(headers, rows, count_label(len(permissions), "account"))
+    )
+
+
+def print_permission(
+    account: Account,
+    permission: Permission,
+    args: argparse.Namespace,
+) -> None:
+    if getattr(args, "json", False):
+        sys.stdout.write(
+            render_json(
+                {
+                    "schema_version": SCHEMA_VERSION,
+                    "account": account_dict(account),
+                    "permission": {
+                        "level": permission.level,
+                        "groups": list(permission.groups),
+                    },
+                }
+            )
+        )
+        return
+    if getattr(args, "csv", False):
+        write_csv(
+            sys.stdout,
+            ["name", "uid", "type", "level", "groups"],
+            [
+                [
+                    permission.name,
+                    permission.uid,
+                    permission.account_type,
+                    permission.level,
+                    ",".join(permission.groups),
+                ]
+            ],
+        )
+        return
+
+    labels = [
+        ("Name", account.name),
+        ("UID", str(account.uid)),
+        ("Type", account.type),
+        ("Level", permission.level),
+        ("Privileged groups", ", ".join(permission.groups) or "-"),
+    ]
+    width = max(display_width(label) for label, _value in labels) + 2
+    for label, value in labels:
+        sys.stdout.write(f"{pad(label + ':', width)}{value}\n")
+
+
 def build_parser() -> argparse.ArgumentParser:
     output = argparse.ArgumentParser(add_help=False)
     output_group = output.add_mutually_exclusive_group()
@@ -891,6 +1100,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     groups.add_argument("account", nargs="?", metavar="NAME|UID")
 
+    perms = subparsers.add_parser(
+        "perms",
+        parents=[output, filters],
+        help="show group-derived privilege levels",
+        description=(
+            "Show the privilege level derived from each account's groups, or "
+            "the level and mapped groups of one account."
+        ),
+    )
+    perms.add_argument("account", nargs="?", metavar="NAME|UID")
+
     subparsers.add_parser(
         "sessions",
         parents=[output],
@@ -938,6 +1158,20 @@ def run(args: argparse.Namespace, diagnostics: Diagnostics) -> int:
     if args.command == "info":
         account = resolve_account(source.accounts(), args.account)
         print_info(account, source.ranges, args)
+        return 0
+
+    if args.command == "perms":
+        groups = source.groups()
+        if args.account:
+            account = resolve_account(source.accounts(), args.account)
+            print_permission(account, permission_for(account, groups), args)
+        else:
+            accounts = filter_accounts(
+                source.accounts(),
+                getattr(args, "account_type", "all"),
+                getattr(args, "search", None),
+            )
+            print_permissions(privilege_report(accounts, groups), args)
         return 0
 
     accounts = filter_accounts(

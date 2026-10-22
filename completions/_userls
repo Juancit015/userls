@@ -58,7 +58,7 @@ _userls() {
 
     for word in ${words[2,CURRENT-1]}; do
         case $word in
-            (info|groups|sessions|export) sub=$word ;;
+            (info|groups|perms|sessions|export) sub=$word ;;
         esac
     done
 
@@ -73,12 +73,13 @@ _userls() {
             commands=(
                 'info:show one account'
                 'groups:list groups or the groups of one account'
+                'perms:show group-derived privilege levels'
                 'sessions:list active login sessions'
                 'export:export the account list to a CSV file'
             )
             _describe -t commands 'command' commands
             ;;
-        (info|groups)
+        (info|groups|perms)
             _userls_accounts
             ;;
         (export)

@@ -87,7 +87,9 @@ class FishCompletionTests(unittest.TestCase):
     def test_subcommands_have_descriptions(self):
         with userls_path() as env:
             candidates = self.complete("userls ", env)
-        self.assertEqual(set(candidates), {"info", "groups", "sessions", "export"})
+        self.assertEqual(
+            set(candidates), {"info", "groups", "perms", "sessions", "export"}
+        )
         for token, description in candidates.items():
             self.assertTrue(description, f"{token} has no description")
 
@@ -132,7 +134,7 @@ class FishCompletionTests(unittest.TestCase):
     def test_accounts_are_described_with_uid_and_type(self):
         user = pwd.getpwuid(os.getuid()).pw_name
         with userls_path() as env:
-            for subcommand in ("info", "groups"):
+            for subcommand in ("info", "groups", "perms"):
                 candidates = self.complete(f"userls {subcommand} ", env)
                 self.assertIn(user, candidates, subcommand)
                 self.assertRegex(
@@ -180,7 +182,7 @@ class BashCompletionTests(unittest.TestCase):
     def test_subcommands(self):
         with userls_path() as env:
             candidates = self.complete(["userls", ""], 1, env)
-        self.assertEqual(candidates, ["info", "groups", "sessions", "export"])
+        self.assertEqual(candidates, ["info", "groups", "perms", "sessions", "export"])
 
     def test_option_candidates_before_and_after_subcommand(self):
         expected = {
@@ -219,7 +221,7 @@ class BashCompletionTests(unittest.TestCase):
     def test_accounts_without_header(self):
         user = pwd.getpwuid(os.getuid()).pw_name
         with userls_path() as env:
-            for subcommand in ("info", "groups"):
+            for subcommand in ("info", "groups", "perms"):
                 candidates = self.complete(["userls", subcommand, ""], 2, env)
                 self.assertIn(user, candidates, subcommand)
                 self.assertIn("root", candidates, subcommand)
@@ -273,6 +275,7 @@ class ZshCompletionTests(unittest.TestCase):
         for item in (
             "info:show one account",
             "groups:list groups or the groups of one account",
+            "perms:show group-derived privilege levels",
             "sessions:list active login sessions",
             "export:export the account list to a CSV file",
         ):
@@ -317,7 +320,7 @@ class ZshCompletionTests(unittest.TestCase):
     def test_accounts_are_described_with_uid_and_type(self):
         user = pwd.getpwuid(os.getuid()).pw_name
         with userls_path() as env:
-            for subcommand in ("info", "groups"):
+            for subcommand in ("info", "groups", "perms"):
                 output = self.complete(f"userls {subcommand}", 3, env)
                 self.assertRegex(
                     output,

@@ -18,8 +18,8 @@ subcommands, the shared options in both accepted positions, and the values of
 #### Scenario: Subcommand candidates
 
 - **WHEN** the user requests completion at the start of a `userls` argument
-- **THEN** `info`, `groups`, `sessions` and `export` are offered, each with a
-  description
+- **THEN** `info`, `groups`, `sessions`, `perms` and `export` are offered, each
+  with a description
 
 #### Scenario: Option candidates
 
@@ -62,13 +62,14 @@ subcommands, the shared options in both accepted positions, and the values of
 
 ### Requirement: Live account completion
 
-The system SHALL complete account names after `info` and `groups` from the
-same enumeration `userls` uses, and MUST offer no candidates and no shell
-error when enumeration fails.
+The system SHALL complete account names after `info`, `groups` and `perms`
+from the same enumeration `userls` uses, and MUST offer no candidates and no
+shell error when enumeration fails.
 
 #### Scenario: Accounts offered
 
-- **WHEN** the user completes an account argument after `info` or `groups`
+- **WHEN** the user completes an account argument after `info`, `groups` or
+  `perms`
 - **THEN** every enumerated account name is offered, and shells that display
   descriptions show UID and type per candidate
 
