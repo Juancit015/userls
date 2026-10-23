@@ -9,13 +9,22 @@
 # Account names for the subcommands that take one, described with UID and
 # type, silent on any failure.
 _userls_accounts() {
-    local line name uid type
+    local line name rest uid type
     local -a accounts
-    for line in ${(f)"$(command userls --csv 2>/dev/null)"}; do
-        name=${line%%,*}
-        uid=${${line#*,}%%,*}
-        type=${line##*,}
-        [[ $uid == <-> ]] || continue  # skips the CSV header
+    for line in ${(f)"$(command userls --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    payload = json.load(sys.stdin)
+except (OSError, ValueError):
+    raise SystemExit(0)
+for account in payload.get("accounts", []):
+    print(account["name"], account["uid"], account["type"], sep="\t")
+' 2>/dev/null)"}; do
+        name=${line%%$'\t'*}
+        rest=${line#*$'\t'}
+        uid=${rest%%$'\t'*}
+        type=${rest#*$'\t'}
+        [[ $uid == <-> ]] || continue
         accounts+=("${name}:uid ${uid} · ${type}")
     done
     _describe -t accounts 'account' accounts
@@ -38,13 +47,11 @@ _userls_options() {
     specs=(
         '(-h --help)'{-h,--help}'[show the help message and exit]'
         '--json[render the result as JSON on stdout]'
-        '--csv[render the result as CSV on stdout]'
         '--no-color[disable ANSI color]'
         '--version[show the program version and exit]'
         '--search=[search accounts by name (substring) or by UID (exact)]:search term: '
         '--type=[filter accounts by type]:account type:_userls_type_values'
     )
-    [[ $1 == export ]] && specs+=( '--force[overwrite an existing export file]' )
     _arguments -s -S $specs
 }
 
@@ -58,7 +65,7 @@ _userls() {
 
     for word in ${words[2,CURRENT-1]}; do
         case $word in
-            (info|groups|perms|sessions|export) sub=$word ;;
+            (info|groups|perms|sessions) sub=$word ;;
         esac
     done
 
@@ -75,15 +82,11 @@ _userls() {
                 'groups:list groups or the groups of one account'
                 'perms:show group-derived privilege levels'
                 'sessions:list active login sessions'
-                'export:export the account list to a CSV file'
             )
             _describe -t commands 'command' commands
             ;;
         (info|groups|perms)
             _userls_accounts
-            ;;
-        (export)
-            _files
             ;;
     esac
 }

@@ -1,7 +1,6 @@
 import unittest
 
 import contextlib
-import csv
 import io
 import json
 from unittest import mock
@@ -267,31 +266,9 @@ class PermissionCommandTests(unittest.TestCase):
             payload["permission"], {"level": "privileged", "groups": ["docker"]}
         )
 
-    def test_csv_listing(self):
-        code, out, _err = run_main(["perms", "--csv"])
-        self.assertEqual(code, 0)
-        rows = list(csv.reader(io.StringIO(out)))
-        self.assertEqual(rows[0], ["name", "uid", "type", "level", "groups"])
-        self.assertEqual(
-            [row[0] for row in rows[1:]], ["root", "alice", "carol", "bob"]
-        )
-        self.assertEqual(rows[2][4], "sudo")
-        self.assertEqual(rows[4][4], "")
-
-    def test_csv_detail(self):
-        code, out, _err = run_main(["perms", "carol", "--csv"])
-        self.assertEqual(code, 0)
-        rows = list(csv.reader(io.StringIO(out)))
-        self.assertEqual(rows[0], ["name", "uid", "type", "level", "groups"])
-        self.assertEqual(
-            rows[1], ["carol", "1002", "normal", "privileged", "docker"]
-        )
-
     def test_machine_formats_have_no_ansi(self):
-        for flag in ("--json", "--csv"):
-            with self.subTest(flag=flag):
-                _code, out, _err = run_main(["perms", flag])
-                self.assertNotIn("\x1b", out)
+        _code, out, _err = run_main(["perms", "--json"])
+        self.assertNotIn("\x1b", out)
 
     def test_type_filter(self):
         code, out, _err = run_main(["perms", "--type", "normal"])

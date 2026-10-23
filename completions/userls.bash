@@ -6,8 +6,15 @@
 
 # Account names for the subcommands that take one, silent on any failure.
 _userls_accounts() {
-    command userls --csv 2>/dev/null | while IFS=, read -r name uid _; do
-        [[ $uid =~ ^[0-9]+$ ]] || continue  # skips the CSV header
+    command userls --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    payload = json.load(sys.stdin)
+except (OSError, ValueError):
+    raise SystemExit(0)
+for account in payload.get("accounts", []):
+    print(account["name"], account["uid"], account["type"], sep="\t")
+' 2>/dev/null | while IFS=$'\t' read -r name _uid _type; do
         printf '%s\n' "$name"
     done
 }
@@ -18,12 +25,12 @@ _userls() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local subcommands="info groups perms sessions export"
-    local options="--json --csv --no-color --type --search --version --help -h"
+    local subcommands="info groups perms sessions"
+    local options="--json --no-color --type --search --version --help -h"
 
     for word in "${COMP_WORDS[@]:1:COMP_CWORD-1}"; do
         case "$word" in
-            info|groups|perms|sessions|export) sub="$word" ;;
+            info|groups|perms|sessions) sub="$word" ;;
         esac
     done
 
@@ -34,19 +41,12 @@ _userls() {
 
     if [[ $cur == -* ]]; then
         COMPREPLY=($(compgen -W "$options" -- "$cur"))
-        if [[ $sub == export ]]; then
-            COMPREPLY+=($(compgen -W "--force" -- "$cur"))
-        fi
         return
     fi
 
     case "$sub" in
         info|groups|perms)
             COMPREPLY=($(compgen -W "$(_userls_accounts)" -- "$cur"))
-            ;;
-        export)
-            compopt -o filenames 2>/dev/null
-            COMPREPLY=($(compgen -f -- "$cur"))
             ;;
         *)
             COMPREPLY=($(compgen -W "$subcommands" -- "$cur"))

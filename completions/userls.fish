@@ -4,7 +4,7 @@
 #   packaged:  /usr/share/fish/vendor_completions.d/userls.fish
 #   rootless:  ~/.config/fish/completions/userls.fish
 
-# File completion is off by default; re-enabled where files are the argument.
+# File completion is off by default; the arguments are account names.
 complete -c userls -f
 
 # Subcommands (only before one has been typed).
@@ -12,12 +12,10 @@ complete -c userls -n '__fish_use_subcommand' -a info -d 'show one account'
 complete -c userls -n '__fish_use_subcommand' -a groups -d 'list groups or the groups of one account'
 complete -c userls -n '__fish_use_subcommand' -a perms -d 'show group-derived privilege levels'
 complete -c userls -n '__fish_use_subcommand' -a sessions -d 'list active login sessions'
-complete -c userls -n '__fish_use_subcommand' -a export -d 'export the account list to a CSV file'
 
 # Shared options, valid before and after the subcommand.
 complete -c userls -s h -l help -d 'show the help message and exit'
 complete -c userls -l json -d 'render the result as JSON on stdout'
-complete -c userls -l csv -d 'render the result as CSV on stdout'
 complete -c userls -l no-color -d 'disable ANSI color'
 complete -c userls -l version -d 'show the program version and exit'
 complete -c userls -l search -d 'search accounts by name (substring) or by UID (exact)'
@@ -34,21 +32,14 @@ complete -c userls -l type -x -d 'filter accounts by type'
 # Live account names for the subcommands that take one.
 complete -c userls -n '__fish_seen_subcommand_from info groups perms' -f -a '(__userls_accounts)'
 
-# export takes a file and accepts --force.
-complete -c userls -n '__fish_seen_subcommand_from export' -l force -d 'overwrite an existing export file'
-complete -c userls -n '__fish_seen_subcommand_from export' -F
-
 function __userls_accounts
-    set -l lines (command userls --csv 2>/dev/null)
-    if test (count $lines) -lt 2
-        return 0
-    end
-    for line in $lines[2..-1]
-        set -l pieces (string split -n , -- $line)
-        # fields 1 (name), 2 (uid) and the last one (type) survive a naive
-        # split: only gecos, in the middle, may contain commas.
-        if test (count $pieces) -ge 3; and string match -qr '^[0-9]+$' -- $pieces[2]
-            printf '%s\tuid %s · %s\n' $pieces[1] $pieces[2] $pieces[-1]
-        end
-    end
+    command userls --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    payload = json.load(sys.stdin)
+except (OSError, ValueError):
+    raise SystemExit(0)
+for account in payload.get("accounts", []):
+    print("%s\tuid %s · %s" % (account["name"], account["uid"], account["type"]))
+' 2>/dev/null
 end

@@ -33,7 +33,6 @@ ZSH_HARNESS = r"""
 fpath=("$USERLS_FPATH" $fpath)
 autoload -Uz compinit && compinit -u -d "$USERLS_ZDUMP" || { print -r -- COMPINIT-FAILED; exit 2 }
 _describe() { local -a items; items=(${(P)${argv[-1]}}); print -r -- "${(j:|:)items}" }
-_files() { print -r -- FILES }
 _arguments() { printf '%s\n' "$@" }
 words=(${=1}); CURRENT=$2
 _userls
@@ -75,7 +74,11 @@ def parse_candidates(stdout):
 @unittest.skipUnless(shutil.which("fish"), "fish is not installed")
 class FishCompletionTests(unittest.TestCase):
     def complete(self, line, env):
-        script = f"source '{FISH_COMPLETION}'; complete -C'{line}'"
+        script = (
+            f"source '{FISH_COMPLETION}'; "
+            f"set fish_complete_path '{FISH_COMPLETION.parent}'; "
+            f"complete -C'{line}'"
+        )
         result = run([shutil.which("fish"), "-c", script], env=env)
         self.assertEqual(result.returncode, 0, result.stderr)
         return parse_candidates(result.stdout)
@@ -88,7 +91,7 @@ class FishCompletionTests(unittest.TestCase):
         with userls_path() as env:
             candidates = self.complete("userls ", env)
         self.assertEqual(
-            set(candidates), {"info", "groups", "perms", "sessions", "export"}
+            set(candidates), {"info", "groups", "perms", "sessions"}
         )
         for token, description in candidates.items():
             self.assertTrue(description, f"{token} has no description")
@@ -96,7 +99,6 @@ class FishCompletionTests(unittest.TestCase):
     def test_option_candidates_before_and_after_subcommand(self):
         expected = (
             "--json",
-            "--csv",
             "--no-color",
             "--type",
             "--search",
@@ -142,21 +144,15 @@ class FishCompletionTests(unittest.TestCase):
                     r"^uid \d+ · (normal|service|system|unknown)$",
                 )
                 self.assertIn("root", candidates, subcommand)
-                self.assertNotIn("name", candidates, subcommand)  # CSV header
-
-    def test_export_completes_files(self):
-        with userls_path() as env:
-            script = (
-                f"source '{FISH_COMPLETION}'; "
-                "complete -C'userls export ' | string match -r 'userls.py'"
-            )
-            result = run([shutil.which("fish"), "-c", script], env=env)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("userls.py", result.stdout)
+                self.assertNotIn("name", candidates, subcommand)  # no header row
 
     def test_silent_when_userls_fails(self):
         with userls_path("#!/bin/sh\nexit 1\n") as env:
-            script = f"source '{FISH_COMPLETION}'; complete -C'userls info '"
+            script = (
+                f"source '{FISH_COMPLETION}'; "
+                f"set fish_complete_path '{FISH_COMPLETION.parent}'; "
+                "complete -C'userls info '"
+            )
             result = run([shutil.which("fish"), "-c", script], env=env)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "")
@@ -182,12 +178,11 @@ class BashCompletionTests(unittest.TestCase):
     def test_subcommands(self):
         with userls_path() as env:
             candidates = self.complete(["userls", ""], 1, env)
-        self.assertEqual(candidates, ["info", "groups", "perms", "sessions", "export"])
+        self.assertEqual(candidates, ["info", "groups", "perms", "sessions"])
 
     def test_option_candidates_before_and_after_subcommand(self):
         expected = {
             "--json",
-            "--csv",
             "--no-color",
             "--type",
             "--search",
@@ -225,14 +220,7 @@ class BashCompletionTests(unittest.TestCase):
                 candidates = self.complete(["userls", subcommand, ""], 2, env)
                 self.assertIn(user, candidates, subcommand)
                 self.assertIn("root", candidates, subcommand)
-                self.assertNotIn("name", candidates, subcommand)  # CSV header
-
-    def test_export_completes_files_and_force(self):
-        with userls_path() as env:
-            candidates = self.complete(["userls", "export", "user"], 2, env)
-            self.assertIn("userls.py", candidates)
-            candidates = self.complete(["userls", "export", "--f"], 2, env)
-            self.assertEqual(candidates, ["--force"])
+                self.assertNotIn("name", candidates, subcommand)  # no header row
 
     def test_silent_when_userls_fails(self):
         with userls_path("#!/bin/sh\nexit 1\n") as env:
@@ -277,7 +265,6 @@ class ZshCompletionTests(unittest.TestCase):
             "groups:list groups or the groups of one account",
             "perms:show group-derived privilege levels",
             "sessions:list active login sessions",
-            "export:export the account list to a CSV file",
         ):
             self.assertIn(item, output)
 
@@ -286,7 +273,6 @@ class ZshCompletionTests(unittest.TestCase):
             "-h[",
             "--help[",
             "--json[",
-            "--csv[",
             "--no-color[",
             "--type=[",
             "--search=[",
@@ -297,13 +283,6 @@ class ZshCompletionTests(unittest.TestCase):
                 output = self.complete(words, cword, env)
                 for token in expected:
                     self.assertIn(token, output, f"{words} / {token}")
-
-    def test_force_only_after_export(self):
-        with userls_path() as env:
-            exported = self.complete("userls export --f", 3, env)
-            info = self.complete("userls info --f", 3, env)
-        self.assertIn("--force[overwrite an existing export file]", exported)
-        self.assertNotIn("--force", info)
 
     def test_type_values(self):
         with userls_path() as env:
@@ -328,12 +307,7 @@ class ZshCompletionTests(unittest.TestCase):
                     subcommand,
                 )
                 self.assertIn("root:uid 0 · system", output, subcommand)
-                self.assertNotIn("name:uid", output, subcommand)  # CSV header
-
-    def test_export_completes_files(self):
-        with userls_path() as env:
-            output = self.complete("userls export", 3, env)
-        self.assertIn("FILES", output)
+                self.assertNotIn("name:uid", output, subcommand)  # no header row
 
     def test_silent_when_userls_fails(self):
         with userls_path("#!/bin/sh\nexit 1\n") as env:

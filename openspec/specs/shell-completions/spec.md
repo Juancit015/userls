@@ -18,14 +18,14 @@ subcommands, the shared options in both accepted positions, and the values of
 #### Scenario: Subcommand candidates
 
 - **WHEN** the user requests completion at the start of a `userls` argument
-- **THEN** `info`, `groups`, `sessions`, `perms` and `export` are offered, each
+- **THEN** `info`, `groups`, `sessions` and `perms` are offered, each
   with a description
 
 #### Scenario: Option candidates
 
 - **WHEN** the user completes `--` before the subcommand or after it
-- **THEN** `--json`, `--csv`, `--no-color`, `--type`, `--search` and
-  `--version` are offered with descriptions
+- **THEN** `--json`, `--no-color`, `--type`, `--search` and `--version` are
+  offered with descriptions
 
 #### Scenario: Type value candidates
 
@@ -82,15 +82,6 @@ shell error when enumeration fails.
 
 - **WHEN** account enumeration fails during completion
 - **THEN** no account candidates are offered and the shell reports no error
-
-### Requirement: Export file completion
-
-The system SHALL complete filesystem paths for the `export` target argument.
-
-#### Scenario: Path candidates
-
-- **WHEN** the user completes the argument after `userls export`
-- **THEN** existing file and directory paths are offered
 
 ### Requirement: Package installation
 

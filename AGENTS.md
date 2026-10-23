@@ -8,7 +8,7 @@ is English.
 ## Layout
 
 - `userls.py` — the entire CLI: argparse, NSS access (`pwd`/`grp`, `getent`
-  fallback), `who` sessions, table/JSON/CSV rendering. Installed as
+  fallback), `who` sessions, table/JSON rendering. Installed as
   `/usr/bin/userls`.
 - `tests/` — stdlib `unittest` only; no fixtures, no services, no CI. Run
   from the repo root: tests `import userls` and spawn `userls.py`. Shell
@@ -28,19 +28,19 @@ is English.
 ## Commands
 
 ```sh
-python3 -m unittest discover -s tests -v     # full suite (132 tests)
+python3 -m unittest discover -s tests -v     # full suite (109 tests)
 python3 -m unittest tests.test_classify -v   # single module
 openspec validate --all --strict             # spec contract check
 dpkg-buildpackage -us -uc -b                 # .deb lands in the PARENT dir
-lintian --fail-on error ../userls_1.3.0-1_all.deb
+lintian --fail-on error ../userls_2.0.0-1_all.deb
 groff -man -Tascii man/userls.1 >/dev/null   # man page renders
 ```
 
 ## Hard constraints
 
 - Python 3.11+ standard library only. Never add third-party dependencies.
-- Read-only: the only file written is the explicit `userls export` target.
-  No root, no network.
+- Read-only: no files are written; output is stdout only. No root, no
+  network.
 - Do not `stat()` home directories — deliberate; NFS/autofs homes can hang a
   listing. Do not "fix" this.
 - Classification is first-match-wins (UID 0 → system; non-login shell or

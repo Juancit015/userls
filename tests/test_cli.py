@@ -29,15 +29,23 @@ class CliTests(unittest.TestCase):
             "--type",
             "--search",
             "--json",
-            "--csv",
             "--no-color",
             "--version",
             "info",
             "groups",
             "sessions",
-            "export",
         ):
             self.assertIn(token, result.stdout)
+        for token in ("--csv", "--force", "export"):
+            self.assertNotIn(token, result.stdout)
+
+    def test_removed_export_subcommand_is_usage_error(self):
+        result = run_cli("export", "/tmp/userls-check.json")
+        self.assertEqual(result.returncode, 2)
+
+    def test_removed_csv_option_is_usage_error(self):
+        result = run_cli("--csv")
+        self.assertEqual(result.returncode, 2)
 
     def test_version(self):
         result = run_cli("--version")

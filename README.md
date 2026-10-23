@@ -4,10 +4,10 @@ Read-only CLI to inspect local user accounts, groups and active sessions.
 
 `userls` answers the everyday administration questions — which accounts are
 real people, which are service accounts, what groups a user belongs to, who is
-logged in — as readable tables and as machine-readable JSON or CSV. It never
-modifies accounts, passwords, groups or any system file.
+logged in — as readable tables and as machine-readable JSON. It never writes
+files and never modifies accounts, passwords, groups or any system file.
 
-**Status:** 1.0.0, packaged for Debian 12 (bookworm) and newer. The canonical
+**Status:** 2.0.0, packaged for Debian 12 (bookworm) and newer. The canonical
 repository is <https://github.com/Juancit015/userls>.
 
 ## Why not `getent` or `lslogins`?
@@ -23,7 +23,7 @@ JSON output.
   actual `UID_MIN`, `UID_MAX`, `SYS_UID_MIN` and `SYS_UID_MAX` values in
   `/etc/login.defs`, plus shell and home-path indicators
 - groups, memberships and active sessions in the same tool
-- `--json` and `--csv` output with a versioned schema
+- `--json` output with a versioned schema
 - Python standard library only: no third-party packages, no root
 
 Classification is heuristic by nature. `userls` reports it as such and never
@@ -36,20 +36,20 @@ claims certainty; see [Account types](#account-types).
 - No root privileges, no network access, no third-party Python packages
 
 `userls` reads account data through NSS (`pwd`/`grp`, with a `getent`
-fallback), UID ranges from `/etc/login.defs`, and sessions from `who`. The
-only file it ever writes is the target you name with `userls export`.
+fallback), UID ranges from `/etc/login.defs`, and sessions from `who`. It
+writes no files; redirect stdout when a file is needed.
 
 ## Install
 
 ### From the `.deb` (GitHub releases)
 
-Download `userls_1.3.0-1_all.deb` and `SHA256SUMS` from the
+Download `userls_2.0.0-1_all.deb` and `SHA256SUMS` from the
 [Releases page](https://github.com/Juancit015/userls/releases), verify the
 checksum, then install:
 
 ```sh
 sha256sum -c SHA256SUMS
-sudo apt install ./userls_1.3.0-1_all.deb
+sudo apt install ./userls_2.0.0-1_all.deb
 ```
 
 Remove it with `sudo apt remove userls`. The package ships no conffiles, no
@@ -107,18 +107,17 @@ mandb --user-db
 ```sh
 sudo apt install debhelper
 dpkg-buildpackage -us -uc -b
-ls ../userls_1.3.0-1_all.deb
+ls ../userls_2.0.0-1_all.deb
 ```
 
 ## Usage
 
 ```
-userls [--type TYPE] [--search TEXT] [--json|--csv] [--no-color]
+userls [--type TYPE] [--search TEXT] [--json] [--no-color]
 userls info <name|uid>
 userls groups [name|uid]
 userls perms [name|uid]
 userls sessions
-userls export <file> [--force]
 ```
 
 Listing accounts, the default action:
@@ -169,7 +168,6 @@ Machine-readable output:
 
 ```console
 $ userls --json
-$ userls --csv
 $ userls --type service --json
 $ userls groups username --json
 ```
@@ -177,31 +175,13 @@ $ userls groups username --json
 Shared flags work before or after the subcommand, so `userls --json groups`
 and `userls groups --json` are equivalent.
 
-Export the current account view to CSV or a styled HTML document. The target
-extension selects the format: `.html` and `.htm` write HTML; `.csv` and every
-other name write CSV. `userls` refuses to overwrite an existing file unless
-`--force` is given:
+Before 2.0.0, `userls` could also write comma-separated files and styled
+documents. Those modes are gone: `--json` is the only machine-readable format,
+and no command writes a file. Redirect stdout when a file is needed:
 
 ```console
-$ userls export accounts.csv
-$ userls export accounts.html
-$ userls --type service export service-accounts.csv
-$ userls export accounts.html --force
+$ userls --json > accounts.json
 ```
-
-The HTML document is self-contained and meant for reading or printing. Every
-value is in its own table cell; headers are uppercase on a dark background;
-account rows are bold; and the `TYPE` cell carries a background color: orange
-for `system`, dark blue for `service`, green for `normal`, and gray for
-`unknown`. Column widths follow the longest header or value and include
-padding, so paths and names stay on one line. Long tables scroll horizontally
-instead of squeezing the text.
-
-The HTML header `FULL NAME` contains the first comma-separated GECOS component
-with surrounding whitespace removed. An empty result is shown as `NA`, so
-`juan,,,` becomes `juan` and a blank GECOS becomes `NA`. `PRIMARY GROUP` is a
-separate column, not a group list. CSV keeps the lowercase `gecos` header and
-the raw value, including the literal `"juan,,,"` field.
 
 Disable color when piping through a pager that does not strip ANSI sequences.
 Colors are only emitted when stdout is a terminal, so pipes are already clean:
@@ -263,7 +243,7 @@ username  1000  normal  sudo   sudo, docker
 Rows are ordered by level severity and then UID. `userls perms username` reports
 one account with its level and every mapped group it holds, and exits 1 for an
 unknown name or UID. `--type` and `--search` filter the listing, while
-`--json`, `--csv` and `--no-color` behave as in the other commands.
+`--json` and `--no-color` behave as in the other commands.
 
 ## Output formats
 
@@ -272,13 +252,8 @@ unknown name or UID. `--type` and `--search` filter the listing, while
   `NO_COLOR` environment variable is set.
 - **JSON** (`--json`): one object on stdout, no diagnostics mixed in. Warnings
   always go to stderr.
-- **CSV** (`--csv`): RFC 4180 quoting via the `csv` module, `\n` line endings.
-  `export` writes the same CSV when the target is `.csv` or any extension other
-  than `.html`/`.htm`.
-- **HTML** (`.html`/`.htm` export): a self-contained table with embedded CSS,
-  uppercase headers, bold rows, account-type backgrounds, measured column
-  widths and escaped values. It is a human-facing document; use CSV or JSON for
-  data interchange.
+
+There is no other output format and no command writes a file.
 
 ### JSON schema
 
@@ -315,8 +290,7 @@ returns `schema_version`, the `account` object and a `permission` object with
 ## Exit status
 
 - `0` — success, including searches that match nothing
-- `1` — runtime failure (account not found, unwritable export target, `who`
-  failed, malformed source)
+- `1` — runtime failure (account not found, `who` failed, malformed source)
 - `2` — usage error (unknown option or subcommand), reported by `argparse`
 
 ## Limitations

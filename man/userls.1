@@ -1,4 +1,4 @@
-.TH USERLS 1 "2026-10-23" "userls 1.3.0" "User Commands"
+.TH USERLS 1 "2026-10-23" "userls 2.0.0" "User Commands"
 .SH NAME
 userls \- read-only view of local accounts, groups and active sessions
 .SH SYNOPSIS
@@ -15,9 +15,6 @@ userls \- read-only view of local accounts, groups and active sessions
 [\fINAME\fR|\fIUID\fR]
 .br
 .B userls sessions
-.br
-.B userls export
-\fIFILE\fR [\fB\-\-force\fR]
 .SH DESCRIPTION
 .B userls
 lists the accounts known to the system through NSS
@@ -26,8 +23,8 @@ with a
 .B getent
 fallback), classifies them with a heuristic, and reports groups and active
 sessions. It is strictly read-only: it never creates, modifies or deletes
-accounts, passwords, groups or system files. It does not need root privileges
-and never uses the network.
+accounts, passwords, groups or system files, and it never writes any file. It
+does not need root privileges and never uses the network.
 .PP
 Without a subcommand,
 .B userls
@@ -45,10 +42,8 @@ Only list accounts of the given type:
 .B unknown
 or
 .B all
-(the default). Applies to the default listing,
-.BR perms ,
-and
-.BR export .
+(the default). Applies to the default listing and
+.BR perms .
 .TP
 .B \-\-search \fITEXT\fR
 Only list accounts whose name contains
@@ -60,9 +55,6 @@ when it is numeric.
 .B \-\-json
 Render the current result as JSON on stdout. Diagnostics stay on stderr, so
 stdout parses as JSON.
-.TP
-.B \-\-csv
-Render the current result as CSV on stdout.
 .TP
 .B \-\-no-color
 Disable ANSI color. Color is only used on a terminal and is disabled when
@@ -108,36 +100,6 @@ filters apply to the listing, not to a single-account report.
 List active login sessions as reported by
 .BR who (1):
 user, terminal, login time and origin. An empty result exits 0.
-.TP
-.B export \fIFILE\fR [\fB\-\-force\fR]
-Write the current account view to
-.I FILE
-as CSV or a styled HTML document. The target extension selects the format:
-.BR .html " and " .htm
-write HTML; every other name writes CSV. The HTML document contains one table,
-one cell per value, uppercase headers on a dark background, bold account rows,
-and a colored background on the type cell: orange for
-.BR system ,
-dark blue for
-.BR service ,
-green for
-.BR normal ,
-and gray for
-.BR unknown .
-Columns follow the longest header or value plus padding, and values stay on one
-line.
-.I GECOS
-is shown as
-.B FULL NAME
-using its first comma-separated component, or
-.B NA
-when that component is empty;
-.B PRIMARY GROUP
-remains a separate column. CSV keeps the lowercase
-.B gecos
-header and the raw value. Refuses to overwrite an existing file unless
-.B \-\-force
-is given.
 .SH ACCOUNT TYPES
 Classification is a heuristic, not an authoritative statement. Rules are
 evaluated in order and the first match wins:
@@ -232,18 +194,13 @@ object with
 .B level
 and
 .BR groups .
-CSV output
-uses RFC 4180 quoting and newline line endings, and is the same writer used for
-CSV exports. HTML export embeds its CSS, escapes every value, and uses the
-target extension to select the format; it is intended for reading or printing,
-not for data interchange.
 .SH EXIT STATUS
 .TP
 .B 0
 Success, including searches that match nothing.
 .TP
 .B 1
-Runtime failure: unknown account, unwritable export target, a failed
+Runtime failure: unknown account, a failed
 .B who
 or
 .BR getent ,
@@ -289,12 +246,6 @@ List active sessions.
 .TP
 .B userls \-\-json
 Machine-readable listing.
-.TP
-.B userls export accounts.csv
-Export the account list as CSV, refusing to overwrite an existing file.
-.TP
-.B userls export accounts.html
-Export the account list as a styled HTML document.
 .SH LIMITATIONS
 Enumeration is bound to what NSS exposes: backends that do not enumerate, such
 as SSSD with

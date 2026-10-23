@@ -77,17 +77,17 @@ MUST NOT present partial results as complete, and MUST NOT invent records.
 - **THEN** the sessions view reports the failure and exits with a non-zero
   status
 
-### Requirement: Read-only operation
+### Requirement: Read-only operation without file writes
 
 The system MUST NOT create, modify, or delete accounts, passwords, groups, or
-system files, and SHALL write only to an explicitly requested export target.
+system files, and MUST NOT write any files.
 
 #### Scenario: Listing performs no writes
 
 - **WHEN** any listing or inspection command runs
 - **THEN** no account database or system file is modified
 
-#### Scenario: Export writes only its target
+#### Scenario: No command writes files
 
-- **WHEN** the user requests a CSV export
-- **THEN** the only file written is the requested export target
+- **WHEN** any command runs
+- **THEN** no file is created, modified, or deleted
