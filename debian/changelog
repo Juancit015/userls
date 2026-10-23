@@ -1,3 +1,13 @@
+userls (1.3.0-1) unstable; urgency=medium
+
+  * Add a self-contained styled HTML account export selected by the .html or
+    .htm target extension.
+  * Derive columns from display width, escape values, and style the header,
+    account rows and type cells.
+  * Show GECOS as FULL NAME with NA for empty values in HTML; keep CSV raw.
+
+ -- Juan David Rivera Huancas <juandavidriverahuancas0@gmail.com>  Fri, 23 Oct 2026 13:24:38 -0500
+
 userls (1.2.0-1) unstable; urgency=medium
 
   * Add the `perms` subcommand: group-derived privilege levels (root, sudo,

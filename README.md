@@ -43,13 +43,13 @@ only file it ever writes is the target you name with `userls export`.
 
 ### From the `.deb` (GitHub releases)
 
-Download `userls_1.2.0-1_all.deb` and `SHA256SUMS` from the
+Download `userls_1.3.0-1_all.deb` and `SHA256SUMS` from the
 [Releases page](https://github.com/Juancit015/userls/releases), verify the
 checksum, then install:
 
 ```sh
 sha256sum -c SHA256SUMS
-sudo apt install ./userls_1.2.0-1_all.deb
+sudo apt install ./userls_1.3.0-1_all.deb
 ```
 
 Remove it with `sudo apt remove userls`. The package ships no conffiles, no
@@ -107,7 +107,7 @@ mandb --user-db
 ```sh
 sudo apt install debhelper
 dpkg-buildpackage -us -uc -b
-ls ../userls_1.2.0-1_all.deb
+ls ../userls_1.3.0-1_all.deb
 ```
 
 ## Usage
@@ -177,14 +177,31 @@ $ userls groups username --json
 Shared flags work before or after the subcommand, so `userls --json groups`
 and `userls groups --json` are equivalent.
 
-Export the current account view to a CSV file. `userls` refuses to overwrite
-an existing file unless `--force` is given:
+Export the current account view to CSV or a styled HTML document. The target
+extension selects the format: `.html` and `.htm` write HTML; `.csv` and every
+other name write CSV. `userls` refuses to overwrite an existing file unless
+`--force` is given:
 
 ```console
 $ userls export accounts.csv
+$ userls export accounts.html
 $ userls --type service export service-accounts.csv
-$ userls export accounts.csv --force
+$ userls export accounts.html --force
 ```
+
+The HTML document is self-contained and meant for reading or printing. Every
+value is in its own table cell; headers are uppercase on a dark background;
+account rows are bold; and the `TYPE` cell carries a background color: orange
+for `system`, dark blue for `service`, green for `normal`, and gray for
+`unknown`. Column widths follow the longest header or value and include
+padding, so paths and names stay on one line. Long tables scroll horizontally
+instead of squeezing the text.
+
+The HTML header `FULL NAME` contains the first comma-separated GECOS component
+with surrounding whitespace removed. An empty result is shown as `NA`, so
+`juan,,,` becomes `juan` and a blank GECOS becomes `NA`. `PRIMARY GROUP` is a
+separate column, not a group list. CSV keeps the lowercase `gecos` header and
+the raw value, including the literal `"juan,,,"` field.
 
 Disable color when piping through a pager that does not strip ANSI sequences.
 Colors are only emitted when stdout is a terminal, so pipes are already clean:
@@ -256,7 +273,12 @@ unknown name or UID. `--type` and `--search` filter the listing, while
 - **JSON** (`--json`): one object on stdout, no diagnostics mixed in. Warnings
   always go to stderr.
 - **CSV** (`--csv`): RFC 4180 quoting via the `csv` module, `\n` line endings.
-  `export` writes the same CSV to a file.
+  `export` writes the same CSV when the target is `.csv` or any extension other
+  than `.html`/`.htm`.
+- **HTML** (`.html`/`.htm` export): a self-contained table with embedded CSS,
+  uppercase headers, bold rows, account-type backgrounds, measured column
+  widths and escaped values. It is a human-facing document; use CSV or JSON for
+  data interchange.
 
 ### JSON schema
 

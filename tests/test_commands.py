@@ -22,7 +22,14 @@ ACCOUNTS = [
         "service",
     ),
     Account(
-        "juan", 1000, 1000, "Juan", "/home/juan", "/usr/bin/fish", "juan", "normal"
+        "juan",
+        1000,
+        1000,
+        "juan,,,",
+        "/home/juan",
+        "/usr/bin/fish",
+        "juan",
+        "normal",
     ),
     Account(
         "nobody",
@@ -213,6 +220,76 @@ class CommandTests(unittest.TestCase):
 
             code, _, _ = run_main(["export", str(path), "--force"])
             self.assertEqual(code, 0)
+
+    def test_export_html_targets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for filename in ("accounts.html", "accounts.HTM"):
+                path = Path(tmp) / filename
+                code, out, err = run_main(["export", str(path)])
+                self.assertEqual((code, out, err), (0, "", ""))
+                document = path.read_text(encoding="utf-8")
+                self.assertTrue(document.startswith("<!DOCTYPE html>"))
+                self.assertIn("<table>", document)
+                self.assertIn(">FULL NAME<", document)
+                self.assertEqual(document.count("<tr>"), len(ACCOUNTS) + 1)
+                self.assertEqual(document.count("<td"), len(ACCOUNTS) * 8)
+                self.assertIn("type-system", document)
+                self.assertIn(">juan<", document)
+                self.assertNotIn("\033[", document)
+
+            self.assertEqual(
+                run_main(["export", str(Path(tmp) / "accounts.htm")])[0],
+                0,
+            )
+
+    def test_export_html_filters(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service_path = Path(tmp) / "service.html"
+            code, out, err = run_main(
+                ["--type", "service", "export", str(service_path)]
+            )
+            self.assertEqual((code, out, err), (0, "", ""))
+            document = service_path.read_text(encoding="utf-8")
+            self.assertEqual(document.count("<tr>"), 3)
+            self.assertEqual(document.count("<td"), 16)
+            self.assertIn(">daemon<", document)
+            self.assertIn(">nobody<", document)
+            self.assertNotIn(">root<", document)
+            self.assertNotIn(">juan<", document)
+
+            search_path = Path(tmp) / "juan.html"
+            code, _, _ = run_main(["export", str(search_path), "--search", "juan"])
+            self.assertEqual(code, 0)
+            document = search_path.read_text(encoding="utf-8")
+            self.assertEqual(document.count("<td"), 8)
+            self.assertIn(">juan<", document)
+            self.assertNotIn(">daemon<", document)
+
+    def test_export_unknown_extension_keeps_csv(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "accounts.txt"
+            code, out, err = run_main(["export", str(path)])
+            self.assertEqual((code, out, err), (0, "", ""))
+            document = path.read_text(encoding="utf-8")
+            self.assertIn("name,uid,gid,primary_group,gecos,home,shell,type", document)
+            self.assertIn('"juan,,,"', document)
+            self.assertNotIn("<!DOCTYPE html>", document)
+
+    def test_export_html_force_and_unwritable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "accounts.html"
+            self.assertEqual(run_main(["export", str(path)])[0], 0)
+            code, _, err = run_main(["export", str(path)])
+            self.assertEqual(code, 1)
+            self.assertIn("use --force", err)
+            self.assertEqual(run_main(["export", str(path), "--force"])[0], 0)
+
+        code, out, err = run_main(
+            ["export", "/nonexistent-dir-userls/accounts.html"]
+        )
+        self.assertEqual(code, 1)
+        self.assertEqual(out, "")
+        self.assertIn("cannot write", err)
 
     def test_export_filters_in_both_positions(self):
         with tempfile.TemporaryDirectory() as tmp:

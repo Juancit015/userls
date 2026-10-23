@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import csv
 import grp
+import html
 import json
 import os
 import pwd
@@ -16,9 +17,9 @@ import subprocess
 import sys
 import unicodedata
 from dataclasses import dataclass
-from typing import Callable, Iterable, Sequence
+from typing import Callable, Iterable, Sequence, TextIO
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __prog__ = "userls"
 
 SCHEMA_VERSION = 1
@@ -62,6 +63,60 @@ PRIVILEGE_GROUPS = {
 PRIVILEGE_RANK = {level: rank for rank, level in enumerate(PRIVILEGE_LEVELS)}
 
 TYPE_COLUMN = 6
+HTML_COLUMN_PADDING = 4
+HTML_HEADERS = (
+    "NAME",
+    "UID",
+    "GID",
+    "PRIMARY GROUP",
+    "FULL NAME",
+    "HOME",
+    "SHELL",
+    "TYPE",
+)
+HTML_TYPE_CLASSES = {
+    "system": "type-system",
+    "service": "type-service",
+    "normal": "type-normal",
+    "unknown": "type-unknown",
+}
+HTML_STYLE = """\
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 1.5rem;
+  background: #f8fafc;
+  color: #111827;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.table-wrap { overflow-x: auto; }
+table {
+  width: max-content;
+  border-collapse: collapse;
+  table-layout: auto;
+  background: #ffffff;
+}
+th, td {
+  border: 1px solid #cbd5e1;
+  padding: 0.55rem 1rem;
+  text-align: left;
+  white-space: nowrap;
+  vertical-align: top;
+}
+thead th {
+  background: #0f172a;
+  color: #f8fafc;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+tbody { font-weight: 700; }
+.type-system { background: #f97316; color: #111827; }
+.type-service { background: #1e3a8a; color: #ffffff; }
+.type-normal { background: #15803d; color: #ffffff; }
+.type-unknown { background: #4b5563; color: #ffffff; }
+"""
 
 WHO_RE = re.compile(
     r"^(?P<user>\S+)\s+(?P<tty>\S+)\s+"
@@ -86,6 +141,7 @@ Examples:
   userls sessions
   userls --json
   userls export accounts.csv
+  userls export accounts.html
 """
 
 
@@ -640,6 +696,28 @@ def display_width(text: str) -> int:
     return width
 
 
+def full_name_for_html(gecos: str) -> str:
+    """Return the GECOS full-name component used by the HTML export."""
+    full_name = gecos.split(",", 1)[0].strip()
+    return full_name or "NA"
+
+
+def html_column_widths(
+    headers: Sequence[str],
+    rows: Sequence[Sequence[object]],
+) -> list[int]:
+    """Return padded display widths for an HTML export table."""
+    widths = []
+    for index, header in enumerate(headers):
+        values = [
+            display_width(str(row[index]))
+            for row in rows
+            if index < len(row)
+        ]
+        widths.append(max([display_width(header), *values]) + HTML_COLUMN_PADDING)
+    return widths
+
+
 def pad(text: str, width: int) -> str:
     return text + " " * max(0, width - display_width(text))
 
@@ -669,6 +747,77 @@ def render_table(
     return "\n".join(lines) + "\n"
 
 
+def render_html(accounts: Sequence[Account]) -> str:
+    """Render accounts as a self-contained, styled HTML table."""
+    rows = [
+        [
+            account.name,
+            str(account.uid),
+            str(account.gid),
+            account.primary_group,
+            full_name_for_html(account.gecos),
+            account.home,
+            account.shell,
+            account.type,
+        ]
+        for account in accounts
+    ]
+    widths = html_column_widths(HTML_HEADERS, rows)
+    columns = "\n".join(
+        f'        <col style="width: {width}ch">' for width in widths
+    )
+    header = "\n".join(
+        f'            <th scope="col">{html.escape(label, quote=True)}</th>'
+        for label in HTML_HEADERS
+    )
+    body_rows = []
+    for row in rows:
+        cells = []
+        for index, value in enumerate(row):
+            text = html.escape(str(value), quote=True)
+            if index == len(HTML_HEADERS) - 1:
+                css_class = HTML_TYPE_CLASSES.get(str(value), "type-unknown")
+                cells.append(f'              <td class="{css_class}">{text}</td>')
+            else:
+                cells.append(f"              <td>{text}</td>")
+        body_rows.append(
+            "            <tr>\n"
+            + "\n".join(cells)
+            + "\n            </tr>"
+        )
+    body = "\n".join(body_rows)
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="en">\n'
+        "<head>\n"
+        '  <meta charset="utf-8">\n'
+        '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        "  <title>userls accounts</title>\n"
+        "  <style>\n"
+        f"{HTML_STYLE}"
+        "  </style>\n"
+        "</head>\n"
+        "<body>\n"
+        '  <main class="table-wrap">\n'
+        "    <table>\n"
+        "      <colgroup>\n"
+        f"{columns}\n"
+        "      </colgroup>\n"
+        "      <thead>\n"
+        "        <tr>\n"
+        f"{header}\n"
+        "        </tr>\n"
+        "      </thead>\n"
+        "      <tbody>\n"
+        f"{body}\n"
+        "      </tbody>\n"
+        "    </table>\n"
+        "  </main>\n"
+        "</body>\n"
+        "</html>\n"
+    )
+
+
 def render_json(payload: object) -> str:
     return json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
 
@@ -683,21 +832,45 @@ def write_csv(
     writer.writerows(rows)
 
 
+def _check_target(path: str, force: bool) -> None:
+    if os.path.exists(path) and not force:
+        raise UserlsError(f"{path} already exists; use --force to overwrite")
+
+
+def _write_target(path: str, write: Callable[[TextIO], None]) -> None:
+    try:
+        with open(path, "w", encoding="utf-8", newline="") as handle:
+            write(handle)
+    except OSError as exc:
+        raise UserlsError(
+            f"cannot write {path}: {exc.strerror or exc}"
+        ) from None
+
+
+def export_format(path: str) -> str:
+    """Return the export format selected by a target filename."""
+    extension = os.path.splitext(path)[1].lower()
+    return "html" if extension in {".html", ".htm"} else "csv"
+
+
 def write_csv_file(
     path: str,
     headers: Sequence[str],
     rows: Sequence[Sequence[object]],
     force: bool = False,
 ) -> None:
-    if os.path.exists(path) and not force:
-        raise UserlsError(f"{path} already exists; use --force to overwrite")
-    try:
-        with open(path, "w", encoding="utf-8", newline="") as handle:
-            write_csv(handle, headers, rows)
-    except OSError as exc:
-        raise UserlsError(
-            f"cannot write {path}: {exc.strerror or exc}"
-        ) from None
+    _check_target(path, force)
+    _write_target(path, lambda handle: write_csv(handle, headers, rows))
+
+
+def write_html_file(
+    path: str,
+    accounts: Sequence[Account],
+    force: bool = False,
+) -> None:
+    _check_target(path, force)
+    document = render_html(accounts)
+    _write_target(path, lambda handle: handle.write(document))
 
 
 def account_dict(account: Account) -> dict[str, object]:
@@ -1121,10 +1294,12 @@ def build_parser() -> argparse.ArgumentParser:
     export = subparsers.add_parser(
         "export",
         parents=[output, filters],
-        help="export the account list to a CSV file",
+        help="export the account list to a CSV or HTML file",
         description=(
-            "Write the current account view to a CSV file. Refuses to "
-            "overwrite an existing file unless --force is given."
+            "Write the current account view to a CSV or HTML file. The target "
+            "extension selects the format: .html or .htm writes a styled HTML "
+            "document; every other name writes CSV. Refuses to overwrite an "
+            "existing file unless --force is given."
         ),
     )
     export.add_argument("file", metavar="FILE")
@@ -1181,6 +1356,9 @@ def run(args: argparse.Namespace, diagnostics: Diagnostics) -> int:
     )
 
     if args.command == "export":
+        if export_format(args.file) == "html":
+            write_html_file(args.file, accounts, force=args.force)
+            return 0
         headers = [
             "name",
             "uid",
